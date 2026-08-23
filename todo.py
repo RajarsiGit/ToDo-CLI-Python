@@ -2,91 +2,125 @@ import os
 import sys
 import datetime
 
-now = datetime.datetime.now()
+TODO_FILE = os.path.join(os.getcwd(), 'todo.txt')
+DONE_FILE = os.path.join(os.getcwd(), 'done.txt')
 
-todo_file = os.getcwd() + '\\todo.txt'
-done_file = os.getcwd() + '\\done.txt'
-
-if len(sys.argv) <= 1 or (len(sys.argv)==2 and sys.argv[1]=='help'):
-    strbuf = '''Usage :-
+USAGE = '''Usage :-
 $ ./todo add "todo item"  # Add a new todo
 $ ./todo ls               # Show remaining todos
 $ ./todo del NUMBER       # Delete a todo
 $ ./todo done NUMBER      # Complete a todo
 $ ./todo help             # Show usage
 $ ./todo report           # Statistics'''
-    sys.stdout.buffer.write(strbuf.encode())
 
-elif len(sys.argv)==2:
-    if sys.argv[1]=='ls':
-        try:
-            with open(todo_file, 'r') as todo:
-                todo_task = todo.readlines()
-            if len(todo_task) < 1:
-                sys.stdout.buffer.write('There are no pending todos!'.encode())
-                exit()
-            for i, item in zip(range(len(todo_task), 0, -1), reversed(todo_task)):
-                strbuf = '[' + str(i) + '] ' + item
-                sys.stdout.buffer.write(strbuf.encode())
-        except Exception as e:
-            sys.stdout.buffer.write('There are no pending todos!'.encode())
 
-    elif sys.argv[1]=='report':
-        with open(todo_file, 'r') as todo:
-            todo_task = todo.readlines()
-        with open(done_file, 'r') as done:
-            done_task = done.readlines()
-        strbuf = str(now.strftime("%Y-%m-%d")) + ' Pending : ' + str(len(todo_task)) + ' Completed : ' + str(len(done_task))
-        sys.stdout.buffer.write(strbuf.encode())
-    
-    elif sys.argv[1]=='add':
-        sys.stdout.buffer.write('Error: Missing todo string. Nothing added!\n'.encode())
+def read_todos():
+    try:
+        with open(TODO_FILE, 'r') as f:
+            return f.readlines()
+    except FileNotFoundError:
+        return []
 
-    elif sys.argv[1]=='del':
-        sys.stdout.buffer.write('Error: Missing NUMBER for deleting todo.\n'.encode())
 
-    elif sys.argv[1]=='done':
-        sys.stdout.buffer.write('Error: Missing NUMBER for marking todo as done.\n'.encode())
+def write_todos(tasks):
+    with open(TODO_FILE, 'w') as f:
+        f.writelines(tasks)
 
-elif len(sys.argv)==3:
-    if sys.argv[1]=='add':
-        with open(todo_file, 'a') as todo:
-            todo.write(sys.argv[2] + '\n')
-        strbuf = 'Added todo: "' + sys.argv[2] + '"'
-        sys.stdout.buffer.write(strbuf.encode())
 
-    elif sys.argv[1]=='del':
-        with open(todo_file, 'r') as todo:
-            todo_task = todo.readlines()
-            if int(sys.argv[2]) > len(todo_task):
-                strbuf = 'Error: todo #' + sys.argv[2] + ' does not exist. Nothing deleted.'
-                sys.stdout.buffer.write(strbuf.encode())
-                exit()
-            elif int(sys.argv[2]) < 1:
-                strbuf = 'Error: todo #' + sys.argv[2] + ' does not exist. Nothing deleted.'
-                sys.stdout.buffer.write(strbuf.encode())
-                exit()
-            todo_task.pop(int(sys.argv[2]) - 1)
-            with open(todo_file, 'w') as todo:
-                todo.writelines(todo_task)
-        strbuf = 'Deleted todo #' + sys.argv[2]
-        sys.stdout.buffer.write(strbuf.encode())
+def read_done():
+    try:
+        with open(DONE_FILE, 'r') as f:
+            return f.readlines()
+    except FileNotFoundError:
+        return []
 
-    elif sys.argv[1]=='done':
-        with open(todo_file, 'r') as todo:
-            todo_task = todo.readlines()
-            if int(sys.argv[2]) > len(todo_task):
-                strbuf = 'Error: todo #' + sys.argv[2] + ' does not exist.'
-                sys.stdout.buffer.write(strbuf.encode())
-                exit()
-            elif int(sys.argv[2]) < 1:
-                strbuf = 'Error: todo #' + sys.argv[2] + ' does not exist.'
-                sys.stdout.buffer.write(strbuf.encode())
-                exit()
-            with open(done_file, 'a') as done:
-                done.writelines('x ' + now.strftime("%Y-%m-%d") + ' ' + todo_task[int(sys.argv[2]) - 1])
-            todo_task.pop(int(sys.argv[2]) - 1)
-            with open(todo_file, 'w') as todo:
-                todo.writelines(todo_task)
-        strbuf = 'Marked todo #' + sys.argv[2] + ' as done.'
-        sys.stdout.buffer.write(strbuf.encode())
+
+def validate_number(n_str, tasks, action):
+    try:
+        n = int(n_str)
+    except ValueError:
+        print(f'Error: todo #{n_str} does not exist. {action}')
+        return None
+    if n < 1 or n > len(tasks):
+        print(f'Error: todo #{n_str} does not exist. {action}')
+        return None
+    return n
+
+
+def cmd_help():
+    print(USAGE)
+
+
+def cmd_ls():
+    tasks = read_todos()
+    if not tasks:
+        print('There are no pending todos!')
+        return
+    for i, task in zip(range(len(tasks), 0, -1), reversed(tasks)):
+        print(f'[{i}] {task.rstrip()}')
+
+
+def cmd_add(text):
+    with open(TODO_FILE, 'a') as f:
+        f.write(text + '\n')
+    print(f'Added todo: "{text}"')
+
+
+def cmd_del(n_str):
+    tasks = read_todos()
+    n = validate_number(n_str, tasks, 'Nothing deleted.')
+    if n is None:
+        return
+    tasks.pop(n - 1)
+    write_todos(tasks)
+    print(f'Deleted todo #{n_str}')
+
+
+def cmd_done(n_str):
+    tasks = read_todos()
+    n = validate_number(n_str, tasks, '')
+    if n is None:
+        return
+    today = datetime.date.today().strftime('%Y-%m-%d')
+    with open(DONE_FILE, 'a') as f:
+        f.write(f'x {today} {tasks[n - 1].rstrip()}\n')
+    tasks.pop(n - 1)
+    write_todos(tasks)
+    print(f'Marked todo #{n_str} as done.')
+
+
+def cmd_report():
+    today = datetime.date.today().strftime('%Y-%m-%d')
+    pending = len(read_todos())
+    completed = len(read_done())
+    print(f'{today} Pending : {pending} Completed : {completed}')
+
+
+def main():
+    args = sys.argv[1:]
+
+    if not args or args[0] == 'help':
+        cmd_help()
+    elif args[0] == 'ls':
+        cmd_ls()
+    elif args[0] == 'add':
+        if len(args) < 2:
+            print('Error: Missing todo string. Nothing added!')
+        else:
+            cmd_add(args[1])
+    elif args[0] == 'del':
+        if len(args) < 2:
+            print('Error: Missing NUMBER for deleting todo.')
+        else:
+            cmd_del(args[1])
+    elif args[0] == 'done':
+        if len(args) < 2:
+            print('Error: Missing NUMBER for marking todo as done.')
+        else:
+            cmd_done(args[1])
+    elif args[0] == 'report':
+        cmd_report()
+
+
+if __name__ == '__main__':
+    main()
