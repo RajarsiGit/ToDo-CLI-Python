@@ -1,5 +1,5 @@
 const fs = require("fs");
-const { execSync } = require("child_process");
+const { execFileSync } = require("child_process");
 
 let deleteFile = (path) => {
   try {
@@ -12,7 +12,7 @@ beforeEach(() => {
   deleteFile(`${__dirname}/done.txt`);
 });
 
-let todoTxtCli = (...args) => [`${__dirname}/todo`, ...args].join(" ");
+let todoTxtCli = (...args) => ({ cmd: `${__dirname}/todo`, args });
 
 let usage = `Usage :-
 $ ./todo add "todo item"  # Add a new todo
@@ -23,7 +23,8 @@ $ ./todo help             # Show usage
 $ ./todo report           # Statistics`;
 
 test("prints help when no additional args are provided", () => {
-  let received = execSync(todoTxtCli()).toString("utf8");
+  let { cmd, args } = todoTxtCli();
+  let received = execFileSync(cmd, args).toString("utf8");
 
   expect(received).toEqual(expect.stringContaining(usage));
 });
@@ -178,10 +179,14 @@ test("mark as done a todo which does not exist", () => {
     "water the plants",
     "find needle in the haystack",
   ];
-  todos.forEach((todo) => execSync(todoTxtCli("add", `"${todo}"`)));
+  todos.forEach((todo) => {
+    let { cmd, args } = todoTxtCli("add", todo);
+    execFileSync(cmd, args);
+  });
 
   let expected = "Error: todo #0 does not exist.";
-  let received = execSync(todoTxtCli("done", "0")).toString("utf8");
+  let { cmd, args } = todoTxtCli("done", "0");
+  let received = execFileSync(cmd, args).toString("utf8");
 
   expect(received).toEqual(expect.stringContaining(expected));
 });
@@ -192,10 +197,14 @@ test("mark as done without providing a todo number", () => {
     "water the plants",
     "find needle in the haystack",
   ];
-  todos.forEach((todo) => execSync(todoTxtCli("add", `"${todo}"`)));
+  todos.forEach((todo) => {
+    let { cmd, args } = todoTxtCli("add", todo);
+    execFileSync(cmd, args);
+  });
 
   let expected = "Error: Missing NUMBER for marking todo as done.";
-  let received = execSync(todoTxtCli("done")).toString("utf8");
+  let { cmd, args } = todoTxtCli("done");
+  let received = execFileSync(cmd, args).toString("utf8");
 
   expect(received).toEqual(expect.stringContaining(expected));
 });
@@ -206,14 +215,24 @@ test("report pending & completed todos", () => {
     "water the plants",
     "find needle in the haystack",
   ];
-  todos.forEach((todo) => execSync(todoTxtCli("add", `"${todo}"`)));
+  todos.forEach((todo) => {
+    let { cmd, args } = todoTxtCli("add", todo);
+    execFileSync(cmd, args);
+  });
 
-  execSync(todoTxtCli("done", "1"));
-  execSync(todoTxtCli("done", "2"));
+  {
+    let { cmd, args } = todoTxtCli("done", "1");
+    execFileSync(cmd, args);
+  }
+  {
+    let { cmd, args } = todoTxtCli("done", "2");
+    execFileSync(cmd, args);
+  }
 
   let date = new Date();
   let expected = `${date.toISOString().slice(0, 10)} Pending : 1 Completed : 2`;
-  let received = execSync(todoTxtCli("report")).toString("utf8");
+  let { cmd, args } = todoTxtCli("report");
+  let received = execFileSync(cmd, args).toString("utf8");
 
   expect(received).toEqual(expect.stringContaining(expected));
 });
